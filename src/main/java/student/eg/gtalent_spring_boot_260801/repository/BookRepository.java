@@ -7,12 +7,15 @@ import java.util.List;
 public interface BookRepository {
 
     // 取得所有書籍
-    List<Book> findAll();
+    public List<Book> findAll();
     
     // 新增一本書籍
-    Book create(Book book);
+    public Book create(Book book);
 
     // 修改一本書籍
     public Book update(Long id,Book book);
+
+    // 軟刪除一本書籍
+    public void delete(Long id);
 
 }
