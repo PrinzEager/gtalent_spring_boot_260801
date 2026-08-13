@@ -8,6 +8,12 @@ public interface BookRepository {
 
     // 取得所有書籍
     public List<Book> findAll();
+
+    // 取得一本書籍(by Id)
+    public Book findOneById(Long id);
+
+    // 取得一本書籍(by Name)
+    public List<Book> findOneByName(String name);
     
     // 新增一本書籍
     public Book create(Book book);
@@ -17,5 +23,6 @@ public interface BookRepository {
 
     // 軟刪除一本書籍
     public void delete(Long id);
+    
 
 }

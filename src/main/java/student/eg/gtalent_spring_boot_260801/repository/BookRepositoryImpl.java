@@ -33,8 +33,39 @@ public class BookRepositoryImpl implements BookRepository {
 
     @Override
     public List<Book> findAll() {
+        // 1代表存在，所以要抓出 status = 1
         List<?> queryResults =  entityManager
-                                .createNativeQuery("SELECT * FROM books", Book.class)
+                                .createNativeQuery("SELECT * FROM books WHERE status = ?", Book.class)
+                                .setParameter(1, 1)
+                                .getResultList();
+
+        List<Book> books = new ArrayList<>();                        
+        for(Object obj : queryResults) {
+            books.add((Book) obj);
+        }
+
+        return books;
+    }
+
+    @Override
+    public Book findOneById(Long id) {
+        // 1代表存在, 所以要抓出status = 1
+        Object queryResult =  entityManager
+                                .createNativeQuery("SELECT * FROM books WHERE status = ? and id = ?", Book.class)
+                                .setParameter(1, 1)
+                                .setParameter(2, id)
+                                .getSingleResult();
+
+        return (Book) queryResult;
+    }
+
+    @Override
+    public List<Book> findOneByName(String name) {
+        // 1代表存在, 所以要抓出status = 1
+        List<?> queryResults =  entityManager
+                                .createNativeQuery("SELECT * FROM books WHERE status = ? AND name LIKE ?", Book.class)
+                                .setParameter(1, 1)
+                                .setParameter(2,"%" + name +"%")
                                 .getResultList();
 
         List<Book> books = new ArrayList<>();                        
@@ -74,9 +105,13 @@ public class BookRepositoryImpl implements BookRepository {
         // 確保交易能夠成功 => 如果新增書籍失敗，會回滾交易，避免資料庫出現不一致的狀態。   
         TransactionStatus status = transactionManager.getTransaction(new DefaultTransactionDefinition());
 
+        Byte off = 0;
         try {
             Book existingBook = entityManager.find(Book.class, id);
             if (existingBook == null) {
+                throw new ResourceNotFoundException("book", ResponseMessages.BOOK_NOT_FOUND);
+            }
+            if(existingBook.getStatus() == off) {
                 throw new ResourceNotFoundException("book", ResponseMessages.BOOK_NOT_FOUND);
             }
 
@@ -108,14 +143,16 @@ public class BookRepositoryImpl implements BookRepository {
     public void delete(Long id) {
         // 確保交易能夠成功 => 如果刪除書籍失敗，會回滾交易，避免資料庫出現不一致的狀態。   
         TransactionStatus status = transactionManager.getTransaction(new DefaultTransactionDefinition());
-
+        Byte off = 0;
         try {
             Book existingBook = entityManager.find(Book.class, id);
             if (existingBook == null) {
                 throw new ResourceNotFoundException("book", ResponseMessages.BOOK_NOT_FOUND);
             }
-
-            Byte off = 0;
+            if(existingBook.getStatus() == off) {
+                throw new ResourceNotFoundException("book", ResponseMessages.BOOK_NOT_FOUND);
+            }
+            
             existingBook.setStatus(off);
             existingBook.setDeletedAt(LocalDateTime.now());
             
