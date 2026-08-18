@@ -34,6 +34,13 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-mail</artifactId>
 		</dependency>
+
+		<!-- Password encode / match -->
+		<dependency>
+			<groupId>org.springframework.security</groupId>
+			<artifactId>spring-security-crypto</artifactId>
+		</dependency>
+		
 		<!-- JPA API,  Hibernate, Spring ORM / transaction -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
