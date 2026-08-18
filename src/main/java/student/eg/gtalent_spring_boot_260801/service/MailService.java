@@ -33,4 +33,18 @@ public class MailService {
             throw exception;
         }
     }
+
+    /**
+     * 將書籍異動整理成一致的通知內容。
+     * Controller 只要告訴我們「做了什麼」和「哪一本書」，不用重複組合信件文字。
+     *
+     * @param to 通知收件者（通常是管理者的 Gmail）
+     * @param action 異動名稱，例如「新增」、「修改」或「刪除」
+     * @param bookDescription 要顯示在信件中的書籍資訊
+     */
+    public void sendBookNotification(String to, String action, String bookDescription) {
+        String subject = "書籍" + action + "通知";
+        String text = "書籍已" + action + "。\n" + bookDescription;
+        sendEmail(to, subject, text);
+    }
 }
