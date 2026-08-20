@@ -13,9 +13,11 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.DefaultTransactionDefinition;
 
-import java.time.LocalDateTime;
+
 import java.util.ArrayList;
 import java.util.List;
+
+import java.time.LocalDateTime;
 
 @Repository
 public class BookRepositoryImpl implements BookRepository {
@@ -32,11 +34,15 @@ public class BookRepositoryImpl implements BookRepository {
     }
 
     @Override
-    public List<Book> findAll() {
-        // 1代表存在，所以要抓出 status = 1
+    public List<Book> findAll(int page, int size) {
+        int offset = (page - 1) * size;
+
+        // 1代表存在, 所以要抓出status = 1
         List<?> queryResults =  entityManager
-                                .createNativeQuery("SELECT * FROM books WHERE status = ?", Book.class)
+                                .createNativeQuery("SELECT * FROM books WHERE status = ? ORDER BY id ASC", Book.class)
                                 .setParameter(1, 1)
+                                .setFirstResult(offset)
+                                .setMaxResults(size)
                                 .getResultList();
 
         List<Book> books = new ArrayList<>();                        
@@ -62,10 +68,11 @@ public class BookRepositoryImpl implements BookRepository {
     @Override
     public List<Book> findOneByName(String name) {
         // 1代表存在, 所以要抓出status = 1
+        // SELECT * FROM books WHERE status = ? and name like '%?%';
         List<?> queryResults =  entityManager
-                                .createNativeQuery("SELECT * FROM books WHERE status = ? AND name LIKE ?", Book.class)
+                                .createNativeQuery("SELECT * FROM books WHERE status = ? and name like ?", Book.class)
                                 .setParameter(1, 1)
-                                .setParameter(2,"%" + name +"%")
+                                .setParameter(2, "%" + name + "%")
                                 .getResultList();
 
         List<Book> books = new ArrayList<>();                        
@@ -74,6 +81,16 @@ public class BookRepositoryImpl implements BookRepository {
         }
 
         return books;
+    }
+
+    @Override
+    public long countAll() {
+        Object queryResult =  entityManager
+                                .createNativeQuery("SELECT COUNT(*) FROM books WHERE status = ?")
+                                .setParameter(1, 1)
+                                .getSingleResult();
+        // 轉成long (因為取得的是Object, 所以必須要用Class型別去接:Number, int是基本的型別:無法承接Object)
+        return ((Number) queryResult).longValue();
     }
 
     @Override
@@ -99,25 +116,25 @@ public class BookRepositoryImpl implements BookRepository {
         }
         
     }
-    
+
     @Override
     public Book update(Long id, Book book) {
         // 確保交易能夠成功 => 如果新增書籍失敗，會回滾交易，避免資料庫出現不一致的狀態。   
         TransactionStatus status = transactionManager.getTransaction(new DefaultTransactionDefinition());
-
         Byte off = 0;
         try {
+            // 先查詢資料庫中是否存在該書籍，如果不存在，則拋出例外。
             Book existingBook = entityManager.find(Book.class, id);
             if (existingBook == null) {
                 throw new ResourceNotFoundException("book", ResponseMessages.BOOK_NOT_FOUND);
             }
+
             if(existingBook.getStatus() == off) {
                 throw new ResourceNotFoundException("book", ResponseMessages.BOOK_NOT_FOUND);
             }
 
             existingBook.setName(book.getName());
             existingBook.setPrice(book.getPrice());
-            
             // 交易成功 所以用commit 提交交易，將資料寫入資料庫。
             transactionManager.commit(status);
             return book;
@@ -145,17 +162,18 @@ public class BookRepositoryImpl implements BookRepository {
         TransactionStatus status = transactionManager.getTransaction(new DefaultTransactionDefinition());
         Byte off = 0;
         try {
+            // 先查詢資料庫中是否存在該書籍，如果不存在，則拋出例外。
             Book existingBook = entityManager.find(Book.class, id);
             if (existingBook == null) {
                 throw new ResourceNotFoundException("book", ResponseMessages.BOOK_NOT_FOUND);
             }
+
             if(existingBook.getStatus() == off) {
                 throw new ResourceNotFoundException("book", ResponseMessages.BOOK_NOT_FOUND);
             }
-            
+
             existingBook.setStatus(off);
             existingBook.setDeletedAt(LocalDateTime.now());
-            
             // 交易成功 所以用commit 提交交易，將資料寫入資料庫。
             transactionManager.commit(status);
         } catch (ResourceNotFoundException exception) {
@@ -175,4 +193,6 @@ public class BookRepositoryImpl implements BookRepository {
             );
         }
     }
+
+    
 }
