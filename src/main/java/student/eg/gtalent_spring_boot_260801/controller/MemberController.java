@@ -12,11 +12,15 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.validation.Valid;
+import student.eg.gtalent_spring_boot_260801.request.MemberLoginRequest;
 import student.eg.gtalent_spring_boot_260801.request.MemberPasswordUpdateRequest;
 import student.eg.gtalent_spring_boot_260801.request.MemberProfileUpdateRequest;
 import student.eg.gtalent_spring_boot_260801.request.MemberRegisterRequest;
+import student.eg.gtalent_spring_boot_260801.request.TokenLogoutRequest;
+import student.eg.gtalent_spring_boot_260801.request.TokenRefreshRequest;
 import student.eg.gtalent_spring_boot_260801.response.ApiResponse;
 import student.eg.gtalent_spring_boot_260801.response.MemberResponse;
+import student.eg.gtalent_spring_boot_260801.response.TokenResponse;
 import student.eg.gtalent_spring_boot_260801.service.MemberService;
 
 @RestController
@@ -67,6 +71,25 @@ public class MemberController {
     public ApiResponse delete(@PathVariable Long id) {
         memberService.delete(id);
         return new ApiResponse("會員帳號刪除成功");
+    }
+
+    @PostMapping("/login")
+    @ResponseStatus(HttpStatus.OK)
+    public TokenResponse login(@Valid @RequestBody MemberLoginRequest request) {
+        return memberService.login(request);
+    }
+
+    @PostMapping("/refresh")
+    @ResponseStatus(HttpStatus.OK)
+    public TokenResponse refresh(@Valid @RequestBody TokenRefreshRequest request) {
+        return memberService.refresh(request.getRefreshToken());
+    }
+
+    @PostMapping("/logout")
+    @ResponseStatus(HttpStatus.OK)
+    public ApiResponse logout(@Valid @RequestBody TokenLogoutRequest request) {
+        memberService.logout(request.getRefreshToken());
+        return new ApiResponse("會員登出成功");
     }
 
     // 課後練習:
