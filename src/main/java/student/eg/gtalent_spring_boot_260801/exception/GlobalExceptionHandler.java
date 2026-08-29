@@ -86,12 +86,10 @@ public class GlobalExceptionHandler {
     // API 路徑存在，但是 request 指定的資料不存在，所以這裡依專案規則回 400。
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ApiResponse handleResourceNotFoundException(ResourceNotFoundException exception) {
-        Map<String, String> errors = new TreeMap<>();
-        errors.put(exception.getErrorKey(), ResponseMessages.getMessage(exception.getMessageCode()));
-
         String message = ResponseMessages.getMessage(ResponseMessages.RESOURCE_NOT_FOUND);
-        return new ApiResponse(message, errors);
+        return new ApiResponse(message, buildErrors(exception));
     }
+
 
     // 處理寄信失敗，例如 SMTP 設定錯誤、帳密錯誤或 mail server 連線失敗。
     @ExceptionHandler(MailException.class)
@@ -99,4 +97,28 @@ public class GlobalExceptionHandler {
     public ApiResponse handleMailException(MailException exception) {
         return new ApiResponse(ResponseMessages.getMessage(ResponseMessages.MAIL_SEND_FAILED));
     }
+
+    // 處理Member錯誤，例如帳號重複或確認密碼不一致。
+    @ExceptionHandler(MemberAccountException.class)
+    @ResponseStatus(HttpStatus.UNPROCESSABLE_CONTENT)
+    public ApiResponse handleMemberAccountException(MemberAccountException exception) {
+        String message = ResponseMessages.getMessage(ResponseMessages.VALIDATION_FAILED);
+        return new ApiResponse(message, buildErrors(exception));
+    }
+
+    // 處理Auth錯誤。
+    @ExceptionHandler(AuthException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public ApiResponse handleAuthException(AuthException exception) {
+        return new ApiResponse(
+                ResponseMessages.getMessage(exception.getMessageCode()),
+                buildErrors(exception));
+    }
+
+    private Map<String, String> buildErrors(ApiException exception) {
+        Map<String, String> errors = new TreeMap<>();
+        errors.put(exception.getErrorKey(), ResponseMessages.getMessage(exception.getMessageCode()));
+        return errors;
+    }
+
 }
