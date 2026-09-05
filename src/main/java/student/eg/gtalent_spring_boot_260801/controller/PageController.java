@@ -26,6 +26,11 @@ public class PageController {
         return "books";
     }
 
+    @GetMapping("/page/register")
+    public String registerPage() {
+        return "register";
+    }
+
     @GetMapping("/page/forgot-password")
     public String forgotPasswordPage() {
         return "forgot-password";
