@@ -1,6 +1,8 @@
 package student.eg.gtalent_spring_boot_260801.controller;
 
 import student.eg.gtalent_spring_boot_260801.entity.Book;
+import student.eg.gtalent_spring_boot_260801.constant.OrderStatus;
+import student.eg.gtalent_spring_boot_260801.repository.BookOrderRepository;
 import student.eg.gtalent_spring_boot_260801.repository.BookRepository;
 
 import student.eg.gtalent_spring_boot_260801.request.BookCreateRequest;
@@ -13,6 +15,7 @@ import student.eg.gtalent_spring_boot_260801.service.MailService;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
+
 import jakarta.validation.Valid;
 
 import java.util.List;
@@ -22,11 +25,16 @@ import java.util.List;
 public class BookController {
 
     private final BookRepository repository;
+    private final BookOrderRepository bookOrderRepository;
     private MailService mailService;
     private String toMailAddress = "leonardo071123@gmail.com";
     // 注入式
-    public BookController(BookRepository repository, MailService mailService) {
+    public BookController(
+            BookRepository repository,
+            BookOrderRepository bookOrderRepository,
+            MailService mailService) {
         this.repository = repository;
+        this.bookOrderRepository = bookOrderRepository;
         this.mailService = mailService;
     }
 
@@ -59,13 +67,25 @@ public class BookController {
         // map(BookResponse::new)：每一筆 Book 都執行 new BookResponse(book)，轉成只包含id、name、price  的 DTO。
         // toList()：把轉換後的 BookResponse 收集回 List<BookResponse>。
         List<BookResponse> bookResponses = books.stream()
-                .map(BookResponse::new)
+                .map(book -> new BookResponse(book, getPurchaseStatus(book.getId())))
                 .toList();
 
         long totalElements = repository.countAll();
 
         return new PageResponse<>(bookResponses, page, size, totalElements);
 
+    }
+    
+    private String getPurchaseStatus(Long bookId) {
+        if (bookOrderRepository.countByBookIdAndOrderStatus(bookId, OrderStatus.PAID) > 0) {
+            return OrderStatus.PAID;
+        }
+
+        if (bookOrderRepository.countByBookIdAndOrderStatus(bookId, OrderStatus.PENDING_PAYMENT) > 0) {
+            return OrderStatus.PENDING_PAYMENT;
+        }
+
+        return "AVAILABLE";
     }
 
     // 取得單一書籍By Id

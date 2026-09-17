@@ -22,10 +22,10 @@ import student.eg.gtalent_spring_boot_260801.service.NewebPayService;
 import student.eg.gtalent_spring_boot_260801.response.BookOrderCreateResponse;
 import student.eg.gtalent_spring_boot_260801.response.NewebPayPaymentFormResponse;
 
+
 @RestController
 @RequestMapping("/payments")
 public class PaymentController {
-
     private final BookOrderService bookOrderService;
     private final NewebPayService newebPayService;
 
@@ -33,7 +33,7 @@ public class PaymentController {
         this.bookOrderService = bookOrderService;
         this.newebPayService = newebPayService;
     }
-    
+
     // 一段式建立藍新付款表單。
     // 前端按「購買」後可以直接呼叫這支 API：
     // 1. AuthInterceptor 先從 JWT 取出 buyerMemberId 並放進 request attribute。
@@ -42,19 +42,21 @@ public class PaymentController {
     @PostMapping("books/{bookId}/newebpay/form")
     @ResponseStatus(HttpStatus.OK)
     public NewebPayPaymentFormResponse createBookOrderAndNewebPayForm(
-            @PathVariable Long bookId,
+            @PathVariable Long bookId,                           
             @RequestAttribute(name = AuthInterceptor.AUTH_MEMBER_ID_ATTRIBUTE, required = false) Long buyerMemberId) {
         if (buyerMemberId == null) {
             throw new AuthException("token", ResponseMessages.TOKEN_INVALID);
         }
-         if (bookId == null || bookId < 1) {
+
+        if (bookId == null || bookId < 1) {
             throw new ResourceNotFoundException("book", ResponseMessages.BOOK_NOT_FOUND);
         }
 
         BookOrderCreateResponse order = bookOrderService.createBookOrder(bookId, buyerMemberId);
 
-        return newebPayService.createPaymentForm(order.getPaymentId(), buyerMemberId);
+        return newebPayService.createPaymentForm(order.getPaymentId());
     }
+
 
     // 藍新 NotifyURL：付款結果的後端背景通知。
     // 這支不能要求會員 JWT，因為呼叫方是藍新伺服器，不是前端使用者。
@@ -72,4 +74,5 @@ public class PaymentController {
     public RedirectView returnFromNewebPay() {
         return new RedirectView("/page/books");
     }
+
 }
