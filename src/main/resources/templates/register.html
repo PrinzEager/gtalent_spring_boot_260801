@@ -3,118 +3,186 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>註冊會員</title>
+    <title>會員註冊</title>
     <style>
-        body { margin: 0; min-height: 100vh; font-family: Arial, "Noto Sans TC", sans-serif; background: #f4f6f8; display: grid; place-items: center; color: #1f2933; }
-        main { width: min(420px, calc(100vw - 32px)); background: #fff; border: 1px solid #d9e2ec; border-radius: 8px; padding: 32px; box-sizing: border-box; }
-        h1 { margin: 0 0 12px; font-size: 28px; }
-        .description { margin: 0 0 24px; color: #52606d; line-height: 1.6; }
-        label { display: block; margin: 16px 0 8px; font-weight: 700; }
-        input, select { width: 100%; box-sizing: border-box; padding: 12px; border: 1px solid #bcccdc; border-radius: 6px; font-size: 16px; background: #fff; }
-        button { width: 100%; margin-top: 24px; padding: 12px 16px; border: 0; border-radius: 6px; background: #1769aa; color: #fff; font-size: 16px; font-weight: 700; cursor: pointer; }
-        button:disabled { cursor: wait; opacity: .7; }
-        .message, .error { display: none; margin: 0 0 16px; padding: 12px; border-radius: 6px; }
-        .message { background: #e3f8ee; color: #0b6b3a; }
-        .error { background: #ffe3e3; color: #9b1c1c; }
-        .link-row { margin-top: 16px; text-align: center; }
-        a { color: #1769aa; font-weight: 700; text-decoration: none; }
-        a:hover { text-decoration: underline; }
+        body { 
+            margin: 0; 
+            min-height: 100vh; 
+            font-family: Arial, "Noto Sans TC", sans-serif; 
+            background: #f4f6f8; 
+            color: #1f2933; 
+        }
+        header { 
+            background: #ffffff; 
+            border-bottom: 1px solid #d9e2ec; 
+        }
+        .bar, 
+        main { 
+            width: min(1080px, calc(100vw - 32px)); 
+            margin: 0 auto; 
+        }
+        .bar { 
+            padding: 18px 0; 
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between; 
+            gap: 16px; 
+        }
+        h1 { 
+            margin: 0; 
+            font-size: 26px; 
+        }
+        main { 
+            margin-top: 28px; 
+        }
+        .auth-card { 
+            width: min(100%, 560px); 
+            margin: 0 auto; 
+            padding: 32px; 
+            box-sizing: border-box; 
+            background: #ffffff; 
+            border: 1px solid #d9e2ec; 
+            border-radius: 8px; 
+        }
+        h2 { 
+            margin: 0 0 12px; 
+            font-size: 24px; 
+        }
+        .description { 
+            margin: 0 0 24px; 
+            color: #52606d; 
+            line-height: 1.6; 
+        }
+        .form-grid { 
+            display: grid; 
+            grid-template-columns: repeat(2, minmax(0, 1fr)); 
+            gap: 0 16px; 
+        }
+        .field.full { 
+            grid-column: 1 / -1; 
+        }
+        label { 
+            display: block; 
+            margin: 16px 0 8px; 
+            font-weight: 700; 
+        }
+        input, 
+        select { 
+            width: 100%; 
+            box-sizing: border-box; 
+            padding: 12px; 
+            border: 1px solid #bcccdc; 
+            border-radius: 6px; 
+            background: #ffffff; 
+            font: inherit; 
+        }
+        input:focus, 
+        select:focus { 
+            outline: 2px solid #bfdbfe; 
+            border-color: #2563eb; 
+        }
+        button { 
+            width: 100%; 
+            margin-top: 24px; 
+            padding: 12px 16px; 
+            border: 1px solid #2563eb; 
+            border-radius: 6px; 
+            background: #2563eb; 
+            color: #ffffff; 
+            font: inherit; 
+            font-weight: 700; 
+            cursor: pointer; 
+        }
+        button:disabled { 
+            cursor: wait; 
+            opacity: .7; 
+        }
+        .message, 
+        .error { 
+            display: none; 
+            margin: 0 0 16px; 
+            padding: 12px; 
+            border-radius: 6px; 
+        }
+        .message { 
+            background: #e3f8ee; 
+            color: #0b6b3a; 
+        }
+        .error { 
+            background: #ffe3e3; 
+            color: #9b1c1c; 
+        }
+        .link-row { 
+            margin-top: 16px; 
+            text-align: center; 
+        }
+        a { 
+            color: #2563eb; 
+            font-weight: 700; 
+            text-decoration: none; 
+        }
+        a:hover { 
+            text-decoration: underline; 
+        }
+        @media (max-width: 520px) { .auth-card { padding: 24px; } .form-grid { grid-template-columns: 1fr; } .field.full { grid-column: auto; } }
     </style>
 </head>
 <body>
+
+<header><div class="bar"><h1>查無此店</h1></div></header>
+
 <main>
-    <h1>註冊會員</h1>
-    <p class="description">填寫以下資料後即可建立帳號。</p>
-    <p id="message" class="message" role="status"></p>
-    <p id="error" class="error" role="alert"></p>
-
-    <form id="registerForm">
-        <label for="name">姓名</label>
-        <input id="name" name="name" type="text" maxlength="30" required>
-
-        <label for="gender">性別</label>
-        <select id="gender" name="gender" required>
-            <option value="">請選擇</option>
-            <option value="0">未指定</option>
-            <option value="1">男性</option>
-            <option value="2">女性</option>
-        </select>
-
-        <label for="account">帳號</label>
-        <input id="account" name="account" type="text" maxlength="30" autocomplete="username" required>
-
-        <label for="email">Email</label>
-        <input id="email" name="email" type="email" maxlength="128" autocomplete="email" required>
-
-        <label for="password">密碼</label>
-        <input id="password" name="password" type="password" minlength="6" maxlength="12" autocomplete="new-password" required>
-
-        <label for="confirmPassword">確認密碼</label>
-        <input id="confirmPassword" name="confirmPassword" type="password" minlength="6" maxlength="12" autocomplete="new-password" required>
-
-        <button id="registerButton" type="submit">註冊會員</button>
-    </form>
-
-    <div class="link-row"><a href="/page/login">已有帳號？前往登入</a></div>
+    <section class="auth-card" aria-labelledby="registerTitle">
+        <h2 id="registerTitle">會員註冊</h2>
+        <p class="description">填寫下列資料，建立帳號後即可登入瀏覽圖書。</p>
+        <p id="message" class="message" role="status"></p>
+        <p id="error" class="error" role="alert"></p>
+        <form id="registerForm">
+            <div class="form-grid">
+                <div class="field"><label for="name">姓名</label><input id="name" name="name" type="text" maxlength="30" required></div>
+                <div class="field"><label for="gender">性別</label><select id="gender" name="gender" required><option value="">請選擇</option><option value="0">男性</option><option value="1">女性</option><option value="2">其他</option></select></div>
+                <div class="field full"><label for="account">帳號</label><input id="account" name="account" type="text" maxlength="30" autocomplete="username" required></div>
+                <div class="field full"><label for="email">Email</label><input id="email" name="email" type="email" maxlength="128" autocomplete="email" required></div>
+                <div class="field"><label for="password">密碼</label><input id="password" name="password" type="password" minlength="6" maxlength="12" autocomplete="new-password" required></div>
+                <div class="field"><label for="confirmPassword">確認密碼</label><input id="confirmPassword" name="confirmPassword" type="password" minlength="6" maxlength="12" autocomplete="new-password" required></div>
+            </div>
+            <button id="registerButton" type="submit">註冊</button>
+        </form>
+        <div class="link-row"><a href="/page/login">已有帳號？前往登入</a></div>
+    </section>
 </main>
 
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+
 <script>
-    const form = document.getElementById("registerForm");
-    const button = document.getElementById("registerButton");
-    const message = document.getElementById("message");
-    const error = document.getElementById("error");
-
-    form.addEventListener("submit", async (event) => {
+    $("#registerForm").on("submit", function (event) {
         event.preventDefault();
-        message.style.display = "none";
-        error.style.display = "none";
-
-        if (!form.checkValidity()) {
-            form.reportValidity();
-            return;
-        }
-
-        const password = document.getElementById("password").value;
-        const confirmPassword = document.getElementById("confirmPassword").value;
-        if (password !== confirmPassword) {
-            error.textContent = "兩次輸入的密碼不一致。";
-            error.style.display = "block";
-            return;
-        }
-
-        const payload = {
-            name: document.getElementById("name").value.trim(),
-            gender: Number(document.getElementById("gender").value),
-            account: document.getElementById("account").value.trim(),
-            email: document.getElementById("email").value.trim(),
-            password,
-            confirmPassword
-        };
-
-        button.disabled = true;
-        button.textContent = "註冊中…";
-        try {
-            const response = await fetch("/members/register", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
-            });
-            const data = await response.json().catch(() => ({}));
-            if (!response.ok) {
-                throw new Error(data.message || "註冊失敗，請稍後再試。");
-            }
-
-            message.textContent = "註冊成功，正在前往登入頁…";
-            message.style.display = "block";
-            form.reset();
-            window.setTimeout(() => { window.location.href = "/page/login"; }, 1000);
-        } catch (exception) {
-            error.textContent = exception.message;
-            error.style.display = "block";
-        } finally {
-            button.disabled = false;
-            button.textContent = "註冊會員";
-        }
+        const form = this;
+        const button = $("#registerButton");
+        const message = $("#message").hide();
+        const error = $("#error").hide();
+        if (!form.checkValidity()) { form.reportValidity(); return; }
+        const password = $("#password").val();
+        const confirmPassword = $("#confirmPassword").val();
+        if (password !== confirmPassword) { error.text("兩次輸入的密碼不一致。").show(); return; }
+        button.prop("disabled", true).text("註冊中");
+        $.ajax({
+            url: "/members/register",
+            method: "POST",
+            contentType: "application/json",
+            data: JSON.stringify({ name: $("#name").val().trim(), gender: Number($("#gender").val()), account: $("#account").val().trim(), email: $("#email").val().trim(), password: password, confirmPassword: confirmPassword }),
+            success: function (data) {
+                message.text(data.message || "註冊成功，請前往登入。").show();
+                form.reset();
+                window.setTimeout(function () { window.location.href = "/page/login"; }, 1000);
+            },
+            error: function (xhr) {
+                const data = xhr.responseJSON || {};
+                const fieldErrors = data.errors ? Object.values(data.errors) : [];
+                error.text(fieldErrors[0] || data.message || "註冊失敗，請稍後再試。").show();
+            },
+            complete: function () { button.prop("disabled", false).text("註冊"); }
+        });
     });
 </script>
 </body>

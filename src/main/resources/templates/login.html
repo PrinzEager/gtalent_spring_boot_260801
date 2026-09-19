@@ -5,76 +5,151 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>會員登入</title>
     <style>
-        body { margin: 0; min-height: 100vh; font-family: Arial, "Noto Sans TC", sans-serif; background: #f4f6f8; display: grid; place-items: center; color: #1f2933; }
-        main { width: min(420px, calc(100vw - 32px)); background: #fff; border: 1px solid #d9e2ec; border-radius: 8px; padding: 32px; box-sizing: border-box; }
-        h1 { margin: 0 0 24px; font-size: 28px; }
-        label { display: block; margin: 16px 0 8px; font-weight: 700; }
-        input { width: 100%; box-sizing: border-box; padding: 12px; border: 1px solid #bcccdc; border-radius: 6px; font-size: 16px; }
-        button { width: 100%; margin-top: 24px; padding: 12px 16px; border: 0; border-radius: 6px; background: #1769aa; color: #fff; font-size: 16px; font-weight: 700; cursor: pointer; }
-        button:disabled { cursor: wait; opacity: .7; }
-        .error { display: none; margin: 0 0 16px; padding: 12px; border-radius: 6px; background: #ffe3e3; color: #9b1c1c; }
-        .link-row { margin-top: 16px; text-align: right; }
-        a { color: #1769aa; font-weight: 700; text-decoration: none; }
-        a:hover { text-decoration: underline; }
+        body { 
+            margin: 0; 
+            min-height: 100vh; 
+            font-family: Arial, "Noto Sans TC", sans-serif; 
+            background: #f4f6f8; 
+            color: #1f2933; 
+        }
+        header { 
+            background: #ffffff; 
+            border-bottom: 1px solid #d9e2ec;
+        }
+        .bar, main { 
+            width: min(1080px, calc(100vw - 32px));
+            margin: 0 auto;
+        }
+        .bar { 
+            padding: 18px 0; 
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between; 
+            gap: 16px; 
+        }
+        h1 { 
+            margin: 0; 
+            font-size: 26px; 
+        }
+        main { 
+            margin-top: 28px; 
+        }
+        .auth-card { 
+            width: min(100%, 460px); 
+            margin: 0 auto; 
+            padding: 32px; 
+            box-sizing: border-box; 
+            background: #ffffff; 
+            border: 1px solid #d9e2ec; 
+            border-radius: 8px; 
+        }
+        h2 { 
+            margin: 0 0 24px; 
+            font-size: 24px; 
+        }
+        label { 
+            display: block; 
+            margin: 16px 0 8px; 
+            font-weight: 700; 
+        }
+        input { 
+            width: 100%; 
+            box-sizing: border-box; 
+            padding: 12px; 
+            border: 1px solid #bcccdc; 
+            border-radius: 6px; 
+            font: inherit; 
+        }
+        input:focus { 
+            outline: 2px solid #bfdbfe; 
+            border-color: #2563eb; 
+        }
+        button { 
+            width: 100%; 
+            margin-top: 24px; 
+            padding: 12px 16px; 
+            border: 1px solid #2563eb; 
+            border-radius: 6px; 
+            background: #2563eb; 
+            color: #ffffff; 
+            font: inherit; 
+            font-weight: 700; 
+            cursor: pointer; 
+        }
+        button:disabled { 
+            cursor: wait; 
+            opacity: .7; 
+        }
+        .error { 
+            display: none; 
+            margin: 0 0 16px; 
+            padding: 12px; 
+            border-radius: 6px; 
+            background: #ffe3e3; 
+            color: #9b1c1c; 
+        }
+        .link-row { 
+            margin-top: 16px; 
+            text-align: center; 
+        }
+        a { 
+            color: #2563eb; 
+            font-weight: 700; 
+            text-decoration: none; 
+        }
+        a:hover { 
+            text-decoration: underline; 
+        }
+        @media (max-width: 520px) { .auth-card { padding: 24px; } }
     </style>
 </head>
+
 <body>
+
+<header><div class="bar"><h1>查無此店</h1></div></header>
+
 <main>
-    <h1>會員登入</h1>
-    <p id="error" class="error" role="alert"></p>
-
-    <form id="loginForm">
-        <label for="account">帳號</label>
-        <input id="account" name="account" type="text" autocomplete="username" required>
-
-        <label for="password">密碼</label>
-        <input id="password" name="password" type="password" autocomplete="current-password" required>
-
-        <button id="loginButton" type="submit">登入</button>
-    </form>
-    <div class="link-row"><a href="/page/register">註冊會員</a></div>
-    <div class="link-row"><a href="/page/forgot-password">忘記密碼？</a></div>
+    <section class="auth-card" aria-labelledby="loginTitle">
+        <h2 id="loginTitle">會員登入</h2>
+        <p id="error" class="error" role="alert"></p>
+        <form id="loginForm">
+            <label for="account">帳號</label>
+            <input id="account" name="account" type="text" autocomplete="username" required>
+            <label for="password">密碼</label>
+            <input id="password" name="password" type="password" autocomplete="current-password" required>
+            <button id="loginButton" type="submit">登入</button>
+        </form>
+        <div class="link-row"><a href="/page/register">還沒有帳號？立即註冊</a></div>
+        <div class="link-row"><a href="/page/forgot-password">忘記密碼？</a></div>
+    </section>
 </main>
 
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+
 <script>
-    const loginForm = document.getElementById("loginForm");
-    const loginButton = document.getElementById("loginButton");
-    const loginError = document.getElementById("error");
-
-    loginForm.addEventListener("submit", async (event) => {
+    $("#loginForm").on("submit", function (event) {
         event.preventDefault();
-        loginError.style.display = "none";
-        if (!loginForm.checkValidity()) {
-            loginForm.reportValidity();
-            return;
-        }
-
-        loginButton.disabled = true;
-        loginButton.textContent = "登入中…";
-        try {
-            const response = await fetch("/members/login", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    account: document.getElementById("account").value.trim(),
-                    password: document.getElementById("password").value
-                })
-            });
-            const data = await response.json().catch(() => ({}));
-            if (!response.ok) {
-                throw new Error(data.message || "登入失敗，請確認帳號與密碼。 ");
-            }
-
-            localStorage.setItem("accessToken", data.accessToken);
-            localStorage.setItem("refreshToken", data.refreshToken);
-            window.location.href = "/page/books";
-        } catch (exception) {
-            loginError.textContent = exception.message;
-            loginError.style.display = "block";
-        } finally {
-            loginButton.disabled = false;
-            loginButton.textContent = "登入";
-        }
+        const form = this;
+        const button = $("#loginButton");
+        const error = $("#error").hide();
+        if (!form.checkValidity()) { form.reportValidity(); return; }
+        button.prop("disabled", true).text("登入中");
+        $.ajax({
+            url: "/members/login",
+            method: "POST",
+            contentType: "application/json",
+            data: JSON.stringify({ account: $("#account").val().trim(), password: $("#password").val() }),
+            success: function (data) {
+                localStorage.setItem("accessToken", data.accessToken);
+                localStorage.setItem("refreshToken", data.refreshToken);
+                window.location.href = "/page/books";
+            },
+            error: function (xhr) {
+                const data = xhr.responseJSON || {};
+                error.text(data.message || "登入失敗，請確認帳號與密碼。").show();
+            },
+            complete: function () { button.prop("disabled", false).text("登入"); }
+        });
     });
 </script>
 </body>
