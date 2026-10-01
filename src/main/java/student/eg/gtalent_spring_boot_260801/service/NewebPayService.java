@@ -23,6 +23,8 @@ import java.util.List;
 
 import javax.crypto.Cipher;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,6 +50,8 @@ import student.eg.gtalent_spring_boot_260801.repository.PaymentRepository;
 
 @Service
 public class NewebPayService {
+
+    private static final Logger logger = LoggerFactory.getLogger(NewebPayService.class);
 
     private final PaymentRepository paymentRepository;
     private final PaymentNotificationRepository paymentNotificationRepository;
@@ -106,7 +110,14 @@ public class NewebPayService {
                 .findByPaymentStatusAndCreatedAtLessThanEqual(PaymentStatus.PENDING, cutoffTime);
 
         for (Payment payment : expiredPayments) {
-            syncSinglePayment(payment.getId());
+            try {
+                syncSinglePayment(payment.getId());
+            } catch (RuntimeException exception) {
+                // A single provider failure must not make the page-sync endpoint fail.
+                // 保持付款待處理狀態，以便在稍後的頁面載入時重試。.
+                logger.warn("Unable to sync expired NewebPay payment id={}, merchantOrderNo={}",
+                        payment.getId(), payment.getMerchantOrderNo(), exception);
+            }
         }
         return expiredPayments.size();
     }
@@ -202,9 +213,19 @@ public class NewebPayService {
     private void applyQueryStatus(Payment payment, JsonNode result) {
         String tradeStatus = result.path("TradeStatus").asText();
         if ("0".equals(tradeStatus)) {
-            return; // 尚未付款，不改狀態；下次頁面重整滿條件仍可再次查詢。
+            BookOrder expiredOrder = bookOrderRepository.findById(payment.getOrderId())
+                    .orElseThrow(() -> new ResourceNotFoundException("order", ResponseMessages.RESOURCE_NOT_FOUND));
+            // 此方法僅接收超過 30 分鐘的付款 仍未支付的款項。
+            // 交易過期更改狀態為取消，不繼續維持購買中，讓後續使用者可以購買該本書籍。
+            payment.setPaymentStatus(PaymentStatus.CANCELLED);
+            payment.setReturnCode(tradeStatus);
+            payment.setReturnMessage(result.path("Message").asText(null));
+            expiredOrder.setOrderStatus(OrderStatus.CANCELLED);
+            expiredOrder.setCancelledAt(LocalDateTime.now());
+            paymentRepository.save(payment);
+            bookOrderRepository.save(expiredOrder);
+            return;
         }
-
         BookOrder order = bookOrderRepository.findById(payment.getOrderId())
                 .orElseThrow(() -> new ResourceNotFoundException("order", ResponseMessages.RESOURCE_NOT_FOUND));
         payment.setProviderTradeNo(result.path("TradeNo").asText(null));
