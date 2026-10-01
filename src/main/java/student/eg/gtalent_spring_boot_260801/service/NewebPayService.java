@@ -9,16 +9,25 @@ import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
 import java.net.URLDecoder;
+import java.net.URLEncoder;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
+import java.time.Duration;
 import java.util.HexFormat;
+import java.util.List;
 
 import javax.crypto.Cipher;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.persistence.NoResultException;
 import student.eg.gtalent_spring_boot_260801.constant.NotifyStatus;
@@ -51,6 +60,9 @@ public class NewebPayService {
     private final String gatewayUrl;
     private final String notifyUrl;
     private final String returnUrl;
+    private final String queryTradeInfoUrl;
+    private final ObjectMapper objectMapper;
+    private final HttpClient httpClient;
 
     // 抓取application.properties裡的藍新金流設定
     public NewebPayService(
@@ -64,7 +76,9 @@ public class NewebPayService {
             @Value("${newebpay.version}") String version,
             @Value("${newebpay.gateway-url}") String gatewayUrl,
             @Value("${newebpay.notify-url}") String notifyUrl,
-            @Value("${newebpay.return-url}") String returnUrl) {
+            @Value("${newebpay.return-url}") String returnUrl,
+            // 測試設定檔也能直接啟動；正式值仍可由 application.properties／環境變數覆寫。
+            @Value("${newebpay.query-trade-info-url:https://ccore.newebpay.com/API/QueryTradeInfo}") String queryTradeInfoUrl) {
         this.paymentRepository = paymentRepository;
         this.paymentNotificationRepository = paymentNotificationRepository;
         this.bookOrderRepository = bookOrderRepository;
@@ -76,6 +90,165 @@ public class NewebPayService {
         this.gatewayUrl = gatewayUrl;
         this.notifyUrl = notifyUrl;
         this.returnUrl = returnUrl;
+        this.queryTradeInfoUrl = queryTradeInfoUrl;
+        // 專案未啟用 Spring 的 Jackson auto-configuration，因此在此建立只供藍新回應解析使用的 mapper。
+        this.objectMapper = new ObjectMapper();
+        this.httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
+    }
+
+    /**
+     * 找出「購買中」且建立時間已滿 30 分鐘的付款，並逐筆呼叫藍新單筆查詢。
+     * 30 分鐘限制同時在後端執行，不能只依賴前端，避免手動呼叫 API 造成不必要查帳。
+     */
+    public int syncExpiredPendingPayments() {
+        LocalDateTime cutoffTime = LocalDateTime.now().minusMinutes(30);
+        List<Payment> expiredPayments = paymentRepository
+                .findByPaymentStatusAndCreatedAtLessThanEqual(PaymentStatus.PENDING, cutoffTime);
+
+        for (Payment payment : expiredPayments) {
+            syncSinglePayment(payment.getId());
+        }
+        return expiredPayments.size();
+    }
+
+    /**
+     * 使用藍新 NPA-B02 QueryTradeInfo 查詢一筆付款，並將可信任的結果寫回資料庫。
+     * 查詢失敗會拋出例外，交易不會把既有 PENDING 狀態誤改成失敗。
+     */
+    @Transactional
+    public void syncSinglePayment(Long paymentId) {
+        validateConfig();
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new ResourceNotFoundException("payment", ResponseMessages.RESOURCE_NOT_FOUND));
+
+        // 重新讀取時再次確認狀態：避免同時收到 NotifyURL 後覆寫已完成的付款。
+        if (!PaymentStatus.PENDING.equals(payment.getPaymentStatus())) {
+            return;
+        }
+
+        JsonNode result = requestTradeInfo(payment);
+        verifyQueryResult(payment, result);
+        applyQueryStatus(payment, result);
+    }
+
+    /** 建立 CheckValue、以 x-www-form-urlencoded POST 到藍新，並取出成功回傳的 Result。 */
+    private JsonNode requestTradeInfo(Payment payment) {
+        try {
+            String checkValueSource = "HashIV=" + hashIv
+                    + "&Amt=" + payment.getAmount()
+                    + "&MerchantID=" + merchantId
+                    + "&MerchantOrderNo=" + payment.getMerchantOrderNo()
+                    + "&HashKey=" + hashKey;
+            String checkValue = sha256Uppercase(checkValueSource);
+
+            Map<String, String> params = new LinkedHashMap<>();
+            params.put("MerchantID", merchantId);
+            params.put("Version", "1.3");
+            params.put("RespondType", "JSON");
+            params.put("CheckValue", checkValue);
+            params.put("TimeStamp", String.valueOf(System.currentTimeMillis() / 1000));
+            params.put("Amt", String.valueOf(payment.getAmount()));
+            params.put("MerchantOrderNo", payment.getMerchantOrderNo());
+            String formBody = toFormBody(params);
+
+            HttpRequest request = HttpRequest.newBuilder(URI.create(queryTradeInfoUrl))
+                    .timeout(Duration.ofSeconds(15))
+                    .header("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
+                    .POST(HttpRequest.BodyPublishers.ofString(formBody, StandardCharsets.UTF_8))
+                    .build();
+            HttpResponse<String> response = httpClient.send(request,
+                    HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                throw new IllegalStateException("NewebPay query returned HTTP " + response.statusCode());
+            }
+
+            JsonNode responseBody = objectMapper.readTree(response.body());
+            if (!"SUCCESS".equalsIgnoreCase(responseBody.path("Status").asText())) {
+                throw new IllegalStateException("NewebPay query failed: " + responseBody.path("Message").asText());
+            }
+            JsonNode result = responseBody.path("Result");
+            if (result.isMissingNode() || result.isNull()) {
+                throw new IllegalStateException("NewebPay query did not include Result");
+            }
+            return result;
+        } catch (Exception exception) {
+            throw new IllegalStateException("NewebPay QueryTradeInfo request failed", exception);
+        }
+    }
+
+    /** 確認回傳的訂單、金額、商店代號與 CheckCode，才允許該結果更新本機資料。 */
+    private void verifyQueryResult(Payment payment, JsonNode result) {
+        String returnedMerchantId = result.path("MerchantID").asText();
+        String returnedOrderNo = result.path("MerchantOrderNo").asText();
+        String returnedAmount = result.path("Amt").asText();
+        String tradeNo = result.path("TradeNo").asText();
+        String returnedCheckCode = result.path("CheckCode").asText();
+        String checkCodeSource = "HashIV=" + hashIv
+                + "&Amt=" + returnedAmount
+                + "&MerchantID=" + returnedMerchantId
+                + "&MerchantOrderNo=" + returnedOrderNo
+                + "&TradeNo=" + tradeNo
+                + "&HashKey=" + hashKey;
+
+        if (!merchantId.equals(returnedMerchantId)
+                || !payment.getMerchantOrderNo().equals(returnedOrderNo)
+                || !String.valueOf(payment.getAmount()).equals(returnedAmount)
+                || !sha256Uppercase(checkCodeSource).equalsIgnoreCase(returnedCheckCode)) {
+            throw new IllegalStateException("NewebPay query result verification failed");
+        }
+    }
+
+    /** 將藍新 TradeStatus 映射成既有付款與訂單狀態，並保留交易序號、方式及訊息。 */
+    private void applyQueryStatus(Payment payment, JsonNode result) {
+        String tradeStatus = result.path("TradeStatus").asText();
+        if ("0".equals(tradeStatus)) {
+            return; // 尚未付款，不改狀態；下次頁面重整滿條件仍可再次查詢。
+        }
+
+        BookOrder order = bookOrderRepository.findById(payment.getOrderId())
+                .orElseThrow(() -> new ResourceNotFoundException("order", ResponseMessages.RESOURCE_NOT_FOUND));
+        payment.setProviderTradeNo(result.path("TradeNo").asText(null));
+        payment.setPaymentMethod(result.path("PaymentType").asText(null));
+        payment.setReturnCode(tradeStatus);
+        payment.setReturnMessage(result.path("Message").asText(null));
+
+        if ("1".equals(tradeStatus)) {
+            LocalDateTime paidAt = LocalDateTime.now();
+            payment.setPaymentStatus(PaymentStatus.PAID);
+            payment.setPaidAt(paidAt);
+            order.setOrderStatus(OrderStatus.PAID);
+            order.setPaidAt(paidAt);
+        } else if ("3".equals(tradeStatus)) {
+            payment.setPaymentStatus(PaymentStatus.CANCELLED);
+            order.setOrderStatus(OrderStatus.CANCELLED);
+            order.setCancelledAt(LocalDateTime.now());
+        } else if ("6".equals(tradeStatus)) {
+            payment.setPaymentStatus(PaymentStatus.REFUNDED);
+            order.setOrderStatus(OrderStatus.REFUNDED);
+        } else {
+            // 藍新 TradeStatus=2 為付款失敗；未預期狀態也保守地標為失敗並留下回傳碼。
+            payment.setPaymentStatus(PaymentStatus.FAILED);
+            order.setOrderStatus(OrderStatus.FAILED);
+        }
+        paymentRepository.save(payment);
+        bookOrderRepository.save(order);
+    }
+
+    private String toFormBody(Map<String, String> params) {
+        return params.entrySet().stream()
+                .map(entry -> URLEncoder.encode(entry.getKey(), StandardCharsets.UTF_8)
+                        + "=" + URLEncoder.encode(entry.getValue(), StandardCharsets.UTF_8))
+                .reduce((left, right) -> left + "&" + right)
+                .orElse("");
+    }
+
+    private String sha256Uppercase(String source) {
+        try {
+            return toHex(MessageDigest.getInstance("SHA-256")
+                    .digest(source.getBytes(StandardCharsets.UTF_8))).toUpperCase();
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 is not available", exception);
+        }
     }
 
     @Transactional

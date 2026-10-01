@@ -272,6 +272,31 @@
             });
     }
 
+    // 每次進入、重新整理或從藍新 ReturnURL 回到 /page/books 時，先請後端同步逾時訂單。
+    // 後端會自行判斷：只有 PENDING 且建立時間已超過 30 分鐘才會真的呼叫藍新單筆查詢。
+    // 完成（或查無逾時訂單）後才載入書籍，畫面上的「購買中」就會反映最新資料庫狀態。
+    function syncExpiredPendingPaymentsThenLoadBooks() {
+        const request = apiAjax({
+            url: "/payments/newebpay/sync-expired-pending",
+            method: "POST"
+        });
+
+        if (!request) {
+            return;
+        }
+
+        request
+            .done(function (data, textStatus, xhr) {
+                saveNewTokens(xhr);
+                loadBooks();
+            })
+            .fail(function (xhr) {
+                // 查帳暫時失敗不可阻止使用者瀏覽書籍；保留購買中狀態，等待下次重新整理再同步。
+                saveNewTokens(xhr);
+                loadBooks();
+            });
+    }
+
     // 把書籍資料畫到 HTML 表格裡。
     // books 是陣列，每一個 book 物件都會變成一列 <tr>。
     function renderBooks(books) {
@@ -460,7 +485,8 @@
     });
 
     // 頁面載入完成後自動執行 loadBooks，取得第一頁書籍資料。
-    $(loadBooks);
+    // 不直接呼叫 loadBooks：必須先讓 AJAX 查帳流程有機會更新逾時訂單。
+    $(syncExpiredPendingPaymentsThenLoadBooks);
 </script>
 </body>
 </html>

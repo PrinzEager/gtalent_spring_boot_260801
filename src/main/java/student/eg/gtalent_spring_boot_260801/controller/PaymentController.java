@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import java.util.Map;
 import org.springframework.web.servlet.view.RedirectView;
 
 import student.eg.gtalent_spring_boot_260801.constant.ResponseMessages;
@@ -53,6 +54,23 @@ public class PaymentController {
         BookOrderCreateResponse order = bookOrderService.createBookOrder(bookId, buyerMemberId);
 
         return newebPayService.createPaymentForm(order.getPaymentId());
+    }
+
+    /**
+     * 頁面重新載入時呼叫的「逾時購買中訂單同步」API。
+     *
+     * 不讓瀏覽器傳入訂單號碼，避免使用者藉由修改參數查詢別人的交易；後端只會挑出
+     * 已經 PENDING 超過 30 分鐘的資料，再逐筆以藍新 QueryTradeInfo 查詢。
+     */
+    @PostMapping("/newebpay/sync-expired-pending")
+    @ResponseStatus(HttpStatus.OK)
+    public Map<String, Integer> syncExpiredPendingPayments(
+            @RequestAttribute(name = AuthInterceptor.AUTH_MEMBER_ID_ATTRIBUTE, required = false) Long memberId) {
+        if (memberId == null) {
+            throw new AuthException("token", ResponseMessages.TOKEN_INVALID);
+        }
+
+        return Map.of("checkedCount", newebPayService.syncExpiredPendingPayments());
     }
 
 
