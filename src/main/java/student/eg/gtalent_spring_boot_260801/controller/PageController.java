@@ -13,7 +13,7 @@ public class PageController {
     
     private final MemberService memberService;
 
-    @Value("${line.liff.id:}")
+    @Value("${line.liff.id}")
     private String liffId;
 
     public PageController(MemberService memberService) {
